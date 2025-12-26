@@ -4,6 +4,7 @@ from collections.abc import Iterable, Iterator
 from typing import NamedTuple
 
 import regex as re
+import sortedcontainers
 from joblib import Parallel, delayed
 
 from cs336_basics._utils import encode, log_time
@@ -67,24 +68,53 @@ def get_ptoken_pairs(tokens: Iterator[Token]) -> Iterator[TokenPair]:
 
 
 class _PTokenIndex(dict[TokenPair, dict[PToken, int]]):
+    def __init__(self, ptoken_counts: dict[PToken, int]):
+        self._ptoken_counts = ptoken_counts
+        self._sorted_pairs = sortedcontainers.SortedKeyList(key=self._pair_key)
+        self._pair_total_count = {}
+
+    def _pair_key(self, pair: TokenPair):
+        return (self._pair_total_count[pair], pair)
+
     def add_count(self, pair: TokenPair, ptoken: PToken, count: int = 1) -> None:
         if pair not in self:
             self[pair] = {}
 
-        counts = self[pair]
-        if ptoken not in counts:
-            counts[ptoken] = 0
+        pair_counts = self[pair]
+        if ptoken not in pair_counts:
+            pair_counts[ptoken] = 0
 
-        if counts[ptoken] + count < 0:
-            raise ValueError("PToken count is < 0")
+        new_ptoken_count = pair_counts[ptoken] + count
 
-        counts[ptoken] += count
+        if new_ptoken_count < 0:
+            raise ValueError("Updating count for PToken would results in a negative value")
+        elif new_ptoken_count == 0:
+            pair_counts.pop(ptoken)
+        else:
+            pair_counts[ptoken] = new_ptoken_count
+
+        if pair not in self._pair_total_count:
+            self._pair_total_count[pair] = count * self._ptoken_counts[ptoken]
+            self._sorted_pairs.add(pair)
+        else:
+            self._sorted_pairs.remove(pair)
+            self._pair_total_count[pair] += count * self._ptoken_counts[ptoken]
+            self._sorted_pairs.add(pair)
 
     def inc(self, pair: TokenPair, ptoken: PToken) -> None:
         self.add_count(pair=pair, ptoken=ptoken, count=1)
 
     def dec(self, pair: TokenPair, ptoken: PToken) -> None:
         self.add_count(pair=pair, ptoken=ptoken, count=-1)
+
+    def pop(self, key: TokenPair, default=None) -> dict[PToken, int]:
+        self._sorted_pairs.remove(key)
+        self._pair_total_count.pop(key)
+
+        return super().pop(key, default)
+
+    def most_freq_pair(self) -> TokenPair:
+        return self._sorted_pairs[-1]
 
 
 class PTokenIndices(NamedTuple):
@@ -96,7 +126,9 @@ class PTokenIndices(NamedTuple):
 @log_time("Preparing indices", logger=logger)
 def prepare_indices(counts: dict[str, int]) -> PTokenIndices:
     pairs_for_ptoken: list[list[TokenPair]] = []
-    ptokens_for_pair: _PTokenIndex = _PTokenIndex()
+
+    ptoken_counts_by_idx = {i: v for i, v in enumerate(counts.values())}
+    ptokens_for_pair: _PTokenIndex = _PTokenIndex(ptoken_counts_by_idx)
 
     for idx, ptoken_s in enumerate(counts):
         token_bytes = encode(ptoken_s)

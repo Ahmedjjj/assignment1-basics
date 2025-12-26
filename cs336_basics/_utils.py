@@ -41,7 +41,7 @@ def log_time(
 
 def save_as_json(obj: Any, path: str) -> None:
     with open(path, "w") as f:
-        json.dump(obj, f, indent=2, default=str)
+        json.dump(obj, f, indent=2)
 
 
 def load_from_json(path: str) -> Any:
