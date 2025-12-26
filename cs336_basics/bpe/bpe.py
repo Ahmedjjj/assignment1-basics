@@ -1,3 +1,4 @@
+import base64
 import logging
 import os
 from collections.abc import Iterable, Iterator
@@ -65,11 +66,12 @@ class BPETokenizer:
 
     @log_time("Finding next merge", logger=logger)
     def _get_next_merge(self) -> TokenPair:
-        counts = {}
-        for pair, tokens in self._ptokens_for_pair.items():
-            counts[pair] = sum(self._counts[t] * ptoken_count for t, ptoken_count in tokens.items())
+        return self._ptokens_for_pair.most_freq_pair()
+        # counts = {}
+        # for pair, tokens in self._ptokens_for_pair.items():
+        #     counts[pair] = sum(self._counts[t] * ptoken_count for t, ptoken_count in tokens.items())
 
-        return _get_next_merge_from_counts(counts)
+        # return _get_next_merge_from_counts(counts)
 
     def _update_ptoken_pairs(self, ptoken: int, pairs: list[TokenPair]) -> None:
         self._pairs_for_ptoken[ptoken] = pairs
@@ -149,8 +151,11 @@ class BPETokenizer:
         merges_filepath: str,
         special_tokens_path: str | None = None,
     ) -> None:
-        save_as_json(self._vocab, vocab_filepath)
-        save_as_json(self._merges, merges_filepath)
+        ser_vocab = {k: _encode_as_b64(v) for k, v in self._vocab.items()}
+        ser_merges = [(_encode_as_b64(p[0]), _encode_as_b64(p[1])) for p in self._merges]
+
+        save_as_json(ser_vocab, vocab_filepath)
+        save_as_json(ser_merges, merges_filepath)
 
         if special_tokens_path is not None:
             save_as_json(self._special_tokens, special_tokens_path)
@@ -170,7 +175,10 @@ class BPETokenizer:
         special_tokens: list[str] | str | None = None,
     ) -> "BPETokenizer":
         vocab = load_from_json(vocab_filepath)
+        vocab = {k: _decode_from_b64(v) for k, v in vocab.items()}
+
         merges = load_from_json(merges_filepath)
+        merges = [(_decode_from_b64(p[0]), _decode_from_b64(p[1])) for p in merges]
 
         if isinstance(special_tokens, str):
             special_tokens = load_from_json(special_tokens)
@@ -178,3 +186,11 @@ class BPETokenizer:
         assert special_tokens is None or isinstance(special_tokens, list)
 
         return cls(vocab=vocab, merges=merges, special_tokens=special_tokens)
+
+
+def _decode_from_b64(text: str) -> bytes:
+    return base64.b64decode(text)
+
+
+def _encode_as_b64(bytes: bytes) -> str:
+    return base64.b64encode(bytes).decode("utf-8")
