@@ -19,6 +19,9 @@ dependencies = [
     "tqdm>=4.67.1",
     "wandb>=0.19.7",
     "ty>=0.0.1a16",
+    "joblib>=1.5.3",
+    "pydantic>=2.11.7",
+    "pydantic-settings>=2.12.0",
 ]
 
 [build-system]
@@ -45,8 +48,28 @@ line-length = 120
 # Also ignore `E402` in all `__init__.py` files.
 "__init__.py" = ["E402", "F401", "F403", "E501"]
 
+[dependency-groups]
+dev = [
+    "ipykernel>=7.1.0",
+    "ruff>=0.14.10",
+]
+
 [tool.ruff.lint]
 extend-select = ["UP"]
 ignore = [
     "F722"
+]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
 ]
