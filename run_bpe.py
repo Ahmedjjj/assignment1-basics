@@ -17,6 +17,7 @@ def _parse_args():
     parser.add_argument("--vocab-size", "-v", type=int, required=True)
     parser.add_argument("--split-token", type=str, required=True)
     parser.add_argument("--special-tokens", type=str, nargs="*", default=[])
+    parser.add_argument("--num-chunks", type=int, required=False, default=settings.bpe_count_max_workers)
     return parser.parse_args()
 
 
@@ -41,10 +42,12 @@ def _get_results_folder(input_path: str, vocab_size: int):
             return path
 
 
-def _read_in_chunks(path: str, split_token: str) -> Iterable[str]:
+def _read_in_chunks(path: str, split_token: str, num_chunks: int) -> Iterable[str]:
     with open(path, mode="rb") as buf:
         boundaries = find_chunk_boundaries(
-            file=buf, desired_num_chunks=settings.bpe_count_max_workers, split_special_token=split_token.encode("utf-8")
+            file=buf,
+            desired_num_chunks=num_chunks,
+            split_special_token=split_token.encode("utf-8"),
         )
 
         for start, end in zip(boundaries[:-1], boundaries[1:], strict=True):
@@ -65,9 +68,12 @@ def main():
     logger.info("Target vocab size %i", args.vocab_size)
     logger.info("Special tokens %s", args.special_tokens)
     logger.info("Results folder %s", results_folder)
+    logger.info("Splitting on special token %s", args.split_token)
+
+    logger.info("Data num chunks %i", args.num_chunks)
 
     try:
-        corpus = _read_in_chunks(path=args.input, split_token=args.split_token)
+        corpus = _read_in_chunks(path=args.input, split_token=args.split_token, num_chunks=args.num_chunks)
 
         tokenizer = BPETokenizer(special_tokens=args.special_tokens)
 

@@ -29,12 +29,6 @@ def _init_vocab(special_tokens: Iterable[str] = ()) -> dict[int, Token]:
     return vocab
 
 
-def _get_next_merge_from_counts(counts: dict[TokenPair, int]) -> TokenPair:
-    assert len(counts) > 0
-
-    return max(counts, key=lambda x: (counts[x], x))
-
-
 class BPETokenizer:
     _vocab: Vocabulary
     _special_tokens: tuple[str, ...]
@@ -67,20 +61,6 @@ class BPETokenizer:
     @log_time("Finding next merge", logger=logger)
     def _get_next_merge(self) -> TokenPair:
         return self._ptokens_for_pair.most_freq_pair()
-        # counts = {}
-        # for pair, tokens in self._ptokens_for_pair.items():
-        #     counts[pair] = sum(self._counts[t] * ptoken_count for t, ptoken_count in tokens.items())
-
-        # return _get_next_merge_from_counts(counts)
-
-    def _update_ptoken_pairs(self, ptoken: int, pairs: list[TokenPair]) -> None:
-        self._pairs_for_ptoken[ptoken] = pairs
-
-        for pair in pairs:
-            if pair in self._ptokens_for_pair:
-                self._ptokens_for_pair.inc(pair, ptoken)
-            else:
-                self._ptokens_for_pair.inc(pair, ptoken)
 
     @log_time("Merging token pair", logger=logger)
     def _merge(self, pair: TokenPair) -> None:
@@ -97,15 +77,18 @@ class BPETokenizer:
                     continue
                 elif i > 0 and ptoken_pairs[i - 1] == pair:
                     self._ptokens_for_pair.dec(pair=p, ptoken=ptoken)
-                    ptoken_new_pairs.append((new_token, p[1]))
+                    new_pair = (new_token, p[1])
+                    ptoken_new_pairs.append(new_pair)
+                    self._ptokens_for_pair.inc(pair=new_pair, ptoken=ptoken)
                 elif i < len(ptoken_pairs) - 1 and ptoken_pairs[i + 1] == pair:
                     self._ptokens_for_pair.dec(pair=p, ptoken=ptoken)
-                    ptoken_new_pairs.append((p[0], new_token))
+                    new_pair = (p[0], new_token)
+                    ptoken_new_pairs.append(new_pair)
+                    self._ptokens_for_pair.inc(pair=new_pair, ptoken=ptoken)
                 else:
-                    self._ptokens_for_pair.dec(pair=p, ptoken=ptoken)
                     ptoken_new_pairs.append(p)
 
-            self._update_ptoken_pairs(ptoken, ptoken_new_pairs)
+            self._pairs_for_ptoken[ptoken] = ptoken_new_pairs
 
         # Remove old pair
         self._ptokens_for_pair.pop(pair)
@@ -134,7 +117,7 @@ class BPETokenizer:
         self._trained = True
 
         counts = par_count_unique_ptokens(texts=texts, special_tokens=self._special_tokens, n_jobs=ptoken_count_n_jobs)
-        self._counts, self._pairs_for_ptoken, self._ptokens_for_pair = prepare_indices(counts)
+        self._pairs_for_ptoken, self._ptokens_for_pair = prepare_indices(counts)
         self._merges = []
 
         self._run_merges(num_merges)
@@ -143,7 +126,12 @@ class BPETokenizer:
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]: ...
 
-    def decode(self, ids: list[int]) -> str: ...
+    def decode(self, ids: list[int]) -> str:
+        res = b""
+        for id in ids:
+            res += self.vocab[id]
+
+        return res.decode("utf-8", errors="replace")
 
     def save_to_files(
         self,
