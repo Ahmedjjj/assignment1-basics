@@ -6,7 +6,7 @@ except importlib.metadata.PackageNotFoundError:
     pass
 
 from cs336_basics._utils import configure_logging
-from cs336_basics.bpe import BPETokenizer
+from cs336_basics.bpe import BPETokenizer, train_bpe
 from cs336_basics.pretokenization_example import find_chunk_boundaries
 
-__all__ = ["BPETokenizer", "configure_logging"]
+__all__ = ["configure_logging", "BPETokenizer", "train_bpe"]

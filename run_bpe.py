@@ -5,7 +5,7 @@ import shutil
 import tracemalloc
 from collections.abc import Iterable
 
-from cs336_basics import BPETokenizer, configure_logging, find_chunk_boundaries
+from cs336_basics import configure_logging, find_chunk_boundaries, train_bpe
 from settings import settings
 
 logger = logging.getLogger("cs336_basics")
@@ -75,9 +75,12 @@ def main():
     try:
         corpus = _read_in_chunks(path=args.input, split_token=args.split_token, num_chunks=args.num_chunks)
 
-        tokenizer = BPETokenizer(special_tokens=args.special_tokens)
-
-        tokenizer.train(texts=corpus, vocab_size=args.vocab_size, ptoken_count_n_jobs=settings.bpe_count_max_workers)
+        tokenizer = train_bpe(
+            texts=corpus,
+            special_tokens=args.special_tokens,
+            vocab_size=args.vocab_size,
+            ptoken_count_n_jobs=settings.bpe_count_max_workers,
+        )
 
         tokenizer.save_to_folder(results_folder)
     finally:
