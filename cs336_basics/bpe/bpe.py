@@ -91,6 +91,14 @@ class BPETokenizer:
 
         return cls(vocab=vocab, merges=merges, special_tokens=special_tokens)
 
+    @classmethod
+    def from_folder(cls, folder_path: str) -> "BPETokenizer":
+        return cls.from_files(
+            vocab_filepath=os.path.join(folder_path, "vocab.json"),
+            merges_filepath=os.path.join(folder_path, "merges.json"),
+            special_tokens=os.path.join(folder_path, "special.json"),
+        )
+
 
 def _decode_from_b64(text: str) -> bytes:
     return base64.b64decode(text)
