@@ -22,5 +22,5 @@ clear_resuls_tiny_valid:
 clear_resuls_tiny_train:
 	rm -rf results/TinyStoriesV2-GPT4-train_*
 
-clear_resuls_tiny:
+clear_results_tiny:
 	rm -rf results/TinyStoriesV2-GPT4-*
