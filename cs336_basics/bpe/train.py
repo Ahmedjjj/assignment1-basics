@@ -7,7 +7,6 @@ from cs336_basics._utils import log_time
 from cs336_basics.bpe._pre_tokens import (
     OrderedTokenPairIndex,
     PToken,
-    TokenPair,
     TokenPairFactory,
     par_count_unique_ptokens,
 )
@@ -43,23 +42,9 @@ def _prepare_index(counts: dict[str, int]) -> OrderedTokenPairIndex:
     for text, count in counts.items():
         ptokens.append(PToken(text=text, pair_factory=pair_factory, count=count))
 
-    seen = set()
-    index = OrderedTokenPairIndex()
-
-    for ptoken in ptokens:
-        for pair in ptoken.pairs:
-            if pair not in seen:
-                index.update(pair)
+    index = OrderedTokenPairIndex(pair_factory.pairs)
 
     return index
-
-
-@log_time("Updating index", logger=logger)
-def _update_index(index: OrderedTokenPairIndex, pairs: set[TokenPair], removed_pair: TokenPair) -> None:
-    for pair in pairs:
-        index.update(pair)
-
-    index.remove(removed_pair)
 
 
 @log_time("Running merges", logger=logger)
@@ -69,8 +54,7 @@ def _run_merges(num_merges: int, index: OrderedTokenPairIndex, vocab: Vocabulary
         pair = index.most_frequent_pair
         merges.append((pair.left, pair.right))
         vocab[len(vocab)] = pair.to_token()
-
-        affected_pairs = log_time("Merging Pair", logger=logger)(pair.merge)()
-        _update_index(index, affected_pairs, pair)
+        affected_pairs = pair.merge()
+        index.update(*affected_pairs)
 
     return merges

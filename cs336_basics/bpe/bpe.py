@@ -3,10 +3,10 @@ import logging
 import os
 from collections.abc import Iterable, Iterator
 
-from cs336_basics._utils import load_from_json, save_as_json
+from cs336_basics._utils import encode, load_from_json, log_time, save_as_json
+from cs336_basics.bpe._pre_tokens import PToken, TokenPairFactory, find_pre_tokens, split_on_special_tokens
 from cs336_basics.bpe._types import Merges, Token
 from cs336_basics.bpe._vocab import Vocabulary
-from cs336_basics.bpe.tokenize import tokenize
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class BPETokenizer:
         else:
             self._vocab = vocab
 
-        self._merges = merges
+        self._merges = {m: i for i, m in enumerate(merges)}
 
     @property
     def vocab(self) -> dict[int, Token]:
@@ -33,14 +33,52 @@ class BPETokenizer:
 
     @property
     def merges(self) -> Merges:
-        return self._merges
+        return list(self._merges.keys())
 
     def encode(self, text: str) -> list[int]:
-        return tokenize(text, vocab=self.vocab, merges=self.merges, special_tokens=self._special_tokens)
+        return list(self.encode_iterable([text]))
+
+    @log_time("Encoding token", logger=logger)
+    def _encode_token(self, token: str) -> list[int]:
+        pair_factory = TokenPairFactory()
+        ptoken = PToken(text=token, pair_factory=pair_factory)
+
+        next_merge = min(
+            (pair for pair in ptoken.pairs if (pair.left, pair.right) in self._merges),
+            key=lambda x: self._merges[(x.left, x.right)],
+            default=None,
+        )
+
+        while next_merge is not None:
+            ptoken.merge(next_merge)
+            next_merge = min(
+                (pair for pair in ptoken.pairs if (pair.left, pair.right) in self._merges),
+                key=lambda x: self._merges[(x.left, x.right)],
+                default=None,
+            )
+
+        return [self._vocab.reversed[t] for t in ptoken.tokens]
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
+        cache = {}
         for chunk in iterable:
-            yield from self.encode(chunk)
+            if self._special_tokens:
+                splitted_chunks = split_on_special_tokens(
+                    chunk, special_tokens=self._special_tokens, return_special_tokens=True
+                )
+            else:
+                splitted_chunks = [chunk]
+
+            for chunk in splitted_chunks:
+                if self._special_tokens and chunk in self._special_tokens:
+                    yield self._vocab.reversed[encode(chunk)]
+                else:
+                    for ptoken in find_pre_tokens(chunk):
+                        if ptoken in cache:
+                            yield from cache[ptoken]
+                        else:
+                            cache[ptoken] = list(self._encode_token(ptoken))
+                            yield from cache[ptoken]
 
     def decode(self, ids: list[int]) -> str:
         res = b""
@@ -79,7 +117,7 @@ class BPETokenizer:
         special_tokens: list[str] | str | None = None,
     ) -> "BPETokenizer":
         vocab = load_from_json(vocab_filepath)
-        vocab = {k: _decode_from_b64(v) for k, v in vocab.items()}
+        vocab = {int(k): _decode_from_b64(v) for k, v in vocab.items()}
 
         merges = load_from_json(merges_filepath)
         merges = [(_decode_from_b64(p[0]), _decode_from_b64(p[1])) for p in merges]

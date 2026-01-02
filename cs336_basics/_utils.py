@@ -2,9 +2,11 @@ import json
 import logging
 import os
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from functools import wraps
 from typing import Any, TypeVar
+
+from cs336_basics.pretokenization_example import find_chunk_boundaries
 
 _logger = logging.getLogger(__name__)
 
@@ -65,3 +67,16 @@ def configure_logging(logger: logging.Logger | None = None, file: str | os.PathL
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
+
+
+def read_in_chunks(path: str, split_token: str, num_chunks: int) -> Iterable[str]:
+    with open(path, mode="rb") as buf:
+        boundaries = find_chunk_boundaries(
+            file=buf,
+            desired_num_chunks=num_chunks,
+            split_special_token=split_token.encode("utf-8"),
+        )
+
+        for start, end in zip(boundaries[:-1], boundaries[1:], strict=True):
+            buf.seek(start)
+            yield buf.read(end - start).decode("utf-8", errors="ignore")

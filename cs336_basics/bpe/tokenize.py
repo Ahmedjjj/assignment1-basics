@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 from cs336_basics._utils import encode
 from cs336_basics.bpe._pre_tokens import PToken, TokenPairFactory, find_pre_tokens, split_on_special_tokens
 from cs336_basics.bpe._types import Merges, Token
@@ -40,3 +42,8 @@ def tokenize(text: str, vocab: dict[int, Token], merges: Merges, special_tokens:
             encoding.extend(vocab.reversed[b] for b in ptokens[ptoken].tokens)
 
     return encoding
+
+
+def tokenize_new(
+    texts: Iterable[str],
+): ...

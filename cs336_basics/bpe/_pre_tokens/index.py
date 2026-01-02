@@ -1,11 +1,14 @@
+import logging
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 
 import sortedcollections
 
-from cs336_basics._utils import encode
+from cs336_basics._utils import encode, log_time
 from cs336_basics.bpe._types import Token
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -40,6 +43,7 @@ class TokenPair:
     def ptokens(self) -> Iterable["PToken"]:
         return self._ptokens.keys()
 
+    @log_time("Merging pair", logger=logger)
     def merge(self) -> set["TokenPair"]:
         affected = set()
         for ptoken in tuple(self._ptokens):
@@ -98,24 +102,30 @@ class PToken:
         return self._pairs
 
     def merge(self, pair: TokenPair) -> set[TokenPair]:
-        affected = set()
-
-        for s_pair in self._pairs:
-            affected.add(s_pair)
-            s_pair.dec(self)
-
         tokens = _get_new_tokens_after_merge(pair, self._pairs)
 
         assert b"".join(tokens) == b"".join(self.tokens)
 
         if len(tokens) == 1:
             self._token = tokens[0]
-            self._pairs = []
+            new_pairs = []
         else:
-            self._pairs = list(self.pair_factory(left, right) for left, right in _get_ptoken_pairs(tokens))
-            for pair in self._pairs:
+            new_pairs = list(self.pair_factory(left, right) for left, right in _get_ptoken_pairs(tokens))
+
+        counter = defaultdict(lambda: 0)
+        for pair in self._pairs:
+            counter[pair] -= 1
+
+        for pair in new_pairs:
+            counter[pair] += 1
+
+        affected = set()
+        for pair, count in counter.items():
+            if count != 0:
+                pair.add_count(self, count)
                 affected.add(pair)
-                pair.inc(self)
+
+        self._pairs = new_pairs
 
         return affected
 
@@ -193,10 +203,14 @@ class TokenPairFactory:
     def get_pair(self, left: Token, right: Token) -> TokenPair | None:
         return self._pairs.get((left, right), None)
 
+    @property
+    def pairs(self) -> Iterable[TokenPair]:
+        return self._pairs.values()
+
 
 class OrderedTokenPairIndex:
-    def __init__(self):
-        self._index = sortedcollections.ValueSortedDict()
+    def __init__(self, pairs: Iterable[TokenPair] = ()):
+        self._index = sortedcollections.ValueSortedDict({p: (p.total_count, (p.left, p.right)) for p in pairs})
 
     def _pair_in_index(self, pair: TokenPair) -> bool:
         if pair not in self._index:
@@ -212,11 +226,13 @@ class OrderedTokenPairIndex:
 
         self._index.pop(pair)
 
-    def update(self, pair: TokenPair) -> None:
-        if self._pair_in_index(pair):
-            return
+    @log_time("Updating index", logger=logger)
+    def update(self, *pairs: TokenPair) -> None:
+        for pair in pairs:
+            if self._pair_in_index(pair):
+                return
 
-        self._index[pair] = (pair.total_count, (pair.left, pair.right))
+            self._index[pair] = (pair.total_count, (pair.left, pair.right))
 
     @property
     def most_frequent_pair(self) -> TokenPair:
