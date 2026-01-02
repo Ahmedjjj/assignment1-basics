@@ -6,6 +6,7 @@ import tracemalloc
 from collections.abc import Iterable
 
 from cs336_basics import configure_logging, find_chunk_boundaries, train_bpe
+from cs336_basics._utils import read_in_chunks
 from settings import settings
 
 logger = logging.getLogger("cs336_basics")
@@ -42,19 +43,6 @@ def _get_results_folder(input_path: str, vocab_size: int):
             return path
 
 
-def _read_in_chunks(path: str, split_token: str, num_chunks: int) -> Iterable[str]:
-    with open(path, mode="rb") as buf:
-        boundaries = find_chunk_boundaries(
-            file=buf,
-            desired_num_chunks=num_chunks,
-            split_special_token=split_token.encode("utf-8"),
-        )
-
-        for start, end in zip(boundaries[:-1], boundaries[1:], strict=True):
-            buf.seek(start)
-            yield buf.read(end - start).decode("utf-8", errors="ignore")
-
-
 def main():
     if settings.track_memory:
         tracemalloc.start()
@@ -73,7 +61,7 @@ def main():
     logger.info("Data num chunks %i", args.num_chunks)
 
     try:
-        corpus = _read_in_chunks(path=args.input, split_token=args.split_token, num_chunks=args.num_chunks)
+        corpus = read_in_chunks(path=args.input, split_token=args.split_token, num_chunks=args.num_chunks)
 
         tokenizer = train_bpe(
             texts=corpus,
