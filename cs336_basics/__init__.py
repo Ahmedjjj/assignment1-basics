@@ -4,7 +4,7 @@ __version__ = importlib.metadata.version("cs336_basics")
 
 from cs336_basics._utils import configure_logging, read_in_chunks
 from cs336_basics.bpe import BPETokenizer, train_bpe
-from cs336_basics.layers import Embedding, Linear, RmsNorm, RoPE, SwiGLU
+from cs336_basics.layers import Embedding, Linear, RmsNorm, RoPE, SwiGLU, softmax
 from cs336_basics.pretokenization_example import find_chunk_boundaries
 
 __all__ = [
@@ -18,4 +18,5 @@ __all__ = [
     "RmsNorm",
     "SwiGLU",
     "RoPE",
+    "softmax",
 ]
