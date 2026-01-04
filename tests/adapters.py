@@ -9,7 +9,7 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
-from cs336_basics import BPETokenizer, train_bpe
+from cs336_basics import BPETokenizer, Embedding, Linear, RmsNorm, RoPE, SwiGLU, train_bpe
 
 
 def run_linear(
@@ -31,7 +31,9 @@ def run_linear(
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
 
-    raise NotImplementedError
+    linear = Linear(in_features=d_in, out_features=d_out)
+    linear.load_state_dict({"weights": weights})
+    return linear.forward(in_features)
 
 
 def run_embedding(
@@ -53,7 +55,9 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
 
-    raise NotImplementedError
+    linear = Embedding(num_embeddings=vocab_size, embedding_dim=d_model)
+    linear.load_state_dict({"weights": weights})
+    return linear.forward(token_ids)
 
 
 def run_swiglu(
@@ -78,14 +82,16 @@ def run_swiglu(
     Returns:
         Float[Tensor, "... d_model"]: Output embeddings of the same shape as the input embeddings.
     """
-    # Example:
-    # If your state dict keys match, you can use `load_state_dict()`
-    # swiglu.load_state_dict(weights)
-    # You can also manually assign the weights
-    # swiglu.w1.weight.data = w1_weight
-    # swiglu.w2.weight.data = w2_weight
-    # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    swiglu = SwiGLU(d_model=d_model, d_ff=d_ff)
+    swiglu.load_state_dict(
+        {
+            "w1.weights": w1_weight,
+            "w2.weights": w2_weight,
+            "w3.weights": w3_weight,
+        }
+    )
+
+    return swiglu.forward(in_features)
 
 
 def run_scaled_dot_product_attention(
@@ -202,7 +208,9 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    raise NotImplementedError
+    return RoPE(theta=theta, d_k=d_k, max_seq_len=max_seq_len).forward(
+        x=in_query_or_key, token_positions=token_positions
+    )
 
 
 def run_transformer_block(
@@ -380,7 +388,9 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    rms_norm = RmsNorm(d_model=d_model, eps=eps)
+    rms_norm.load_state_dict({"weights": weights})
+    return rms_norm.forward(in_features)
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
