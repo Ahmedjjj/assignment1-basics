@@ -3,9 +3,8 @@ import logging
 import os
 import shutil
 import tracemalloc
-from collections.abc import Iterable
 
-from cs336_basics import configure_logging, find_chunk_boundaries, train_bpe
+from cs336_basics import configure_logging, train_bpe
 from cs336_basics._utils import read_in_chunks
 from settings import settings
 
