@@ -12,6 +12,7 @@ from cs336_basics.layers import (
     RoPE,
     SwiGLU,
     TransformerBlock,
+    TransformerLM,
     attention,
     softmax,
 )
@@ -32,4 +33,5 @@ __all__ = [
     "attention",
     "MultiHeadSelfAttention",
     "TransformerBlock",
+    "TransformerLM",
 ]
