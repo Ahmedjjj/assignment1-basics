@@ -7,7 +7,7 @@ class RmsNorm(nn.Module):
     def __init__(
         self,
         d_model: int,
-        eps: float,
+        eps: float = 1e-5,
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
     ):
