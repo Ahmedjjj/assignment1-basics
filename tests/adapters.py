@@ -67,9 +67,9 @@ def run_embedding(
         Float[Tensor, "... d_model"]: Batch of embeddings returned by your Embedding layer.
     """
 
-    linear = Embedding(num_embeddings=vocab_size, embedding_dim=d_model)
-    linear.load_state_dict({"weights": weights})
-    return linear.forward(token_ids)
+    emb = Embedding(num_embeddings=vocab_size, embedding_dim=d_model)
+    emb.load_state_dict({"weights": weights})
+    return emb.forward(token_ids)
 
 
 def run_swiglu(
