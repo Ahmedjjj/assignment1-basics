@@ -1,13 +1,7 @@
-import numpy as np
 import torch
 import torch.nn as nn
 from einops import rearrange
-
-
-def _get_rotation_tensor(theta: float, device: torch.device | None = None) -> torch.Tensor:
-    cos = np.cos(theta)
-    sin = np.sin(theta)
-    return torch.Tensor([[cos, -sin], [sin, cos]], device=device)
+from jaxtyping import Float, Int
 
 
 class RoPE(nn.Module):
@@ -15,21 +9,25 @@ class RoPE(nn.Module):
         super().__init__()
         assert d_k % 2 == 0
 
-        rot_tensors = []
+        k = torch.arange(1, d_k // 2 + 1, device=device)
+        thetas = torch.arange(max_seq_len, device=device).unsqueeze(-1) / torch.pow(theta, (2 * k - 2) / d_k)
+        self.sin = torch.repeat_interleave(torch.sin(thetas), 2, dim=-1)
+        self.cos = torch.repeat_interleave(torch.cos(thetas), 2, dim=-1)
 
-        for i in range(max_seq_len):
-            tensor = torch.block_diag(
-                *(
-                    _get_rotation_tensor(i / np.pow(theta, (2 * k - 2) / d_k), device=device)
-                    for k in range(1, d_k // 2 + 1)
-                )
-            )
-            rot_tensors.append(tensor)
+    def forward(
+        self,
+        x: Float[torch.Tensor, " ... sequence_length d_k"],
+        token_positions: Int[torch.Tensor, " ... sequence_length"],
+    ) -> torch.Tensor:
+        sin_mult = self.sin[token_positions]
+        cos_mult = self.cos[token_positions]
 
-        self.rot_tensor = rearrange(rot_tensors, "b ... -> b ...")
-        self.register_buffer(name="rotation_tensors", tensor=self.rot_tensor, persistent=False)
+        return cos_mult * x + sin_mult * _prepare_sin_coord(x)
 
-    def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
-        rotations = self.rot_tensor[token_positions]
-        x = rearrange(x, "... seq_len d_k -> ... seq_len d_k 1")
-        return rearrange(rotations @ x, "... seq_len d_k 1 -> ... seq_len d_k")
+
+def _prepare_sin_coord(
+    x: Float[torch.Tensor, " ... sequence_length d_k"],
+) -> Float[torch.Tensor, " ... sequence_length d_k"]:
+    x1, x2 = x[..., ::2], x[..., 1::2]
+    stacked = torch.stack((-x2, x1), dim=-1)
+    return rearrange(stacked, "... half_sequence_length n -> ... (half_sequence_length n)")
