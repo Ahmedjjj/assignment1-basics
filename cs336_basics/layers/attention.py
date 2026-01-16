@@ -65,7 +65,8 @@ class MultiHeadSelfAttention(nn.Module):
         )
         sequence_length = Q.size(-2)
         if self.rope is not None:
-            token_positions = token_positions or torch.arange(0, sequence_length, dtype=torch.long)
+            if token_positions is None:
+                token_positions = torch.arange(0, sequence_length, dtype=torch.long)
             Q = self.rope.forward(Q, token_positions=token_positions)
             K = self.rope.forward(K, token_positions=token_positions)
 
