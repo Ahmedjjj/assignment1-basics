@@ -7,6 +7,7 @@ except importlib.metadata.PackageNotFoundError:
 
 from cs336_basics._utils import configure_logging, read_in_chunks
 from cs336_basics.bpe import BPETokenizer, train_bpe
+from cs336_basics.cross_entropy import cross_entropy
 from cs336_basics.layers import (
     Embedding,
     Linear,
@@ -37,4 +38,5 @@ __all__ = [
     "MultiHeadSelfAttention",
     "TransformerBlock",
     "TransformerLM",
+    "cross_entropy",
 ]
