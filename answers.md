@@ -215,3 +215,7 @@ Final Layer:                   2.63T    1.8%  (2,634,914,201,600)
 TOTAL FLOPS:                 149.52T  100.0%  (149,522,795,724,800)
 ======================================================================
 Attention will take-over as the biggest % of FLOPs, this is normal as attention is quadratic in the sequence length.
+# `learning_rate_tuning`
+1, 10: Learning is very slow
+100: learning is good and fast
+1000: diverges

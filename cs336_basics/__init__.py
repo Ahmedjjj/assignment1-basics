@@ -17,6 +17,7 @@ from cs336_basics.layers import (
     attention,
     softmax,
 )
+from cs336_basics.optimizer import SGD
 from cs336_basics.pretokenization_example import find_chunk_boundaries
 
 __all__ = [
@@ -36,4 +37,5 @@ __all__ = [
     "TransformerBlock",
     "TransformerLM",
     "cross_entropy",
+    "SGD"
 ]
